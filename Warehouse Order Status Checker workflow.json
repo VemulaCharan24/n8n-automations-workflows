@@ -1,0 +1,319 @@
+{
+  "name": "Warehouse Order Status Checker workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1008,
+        -288
+      ],
+      "id": "1833fe5a-7882-4bb5-98c8-eec10813b24b",
+      "name": "tigger manually"
+    },
+    {
+      "parameters": {
+        "url": "https://learn.app.n8n.cloud/webhook/courses/n8n-quickstart/company-warehouse",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-assessment-id",
+              "value": "6583ecb8ddd5e411dedeeb3dd1e1de32"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -736,
+        -432
+      ],
+      "id": "beef838b-a8fb-42d7-9b1c-1507eb155491",
+      "name": "GetDataFromWareHouse",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yX9bt31xRtVdDijo",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "8fgCP69MFzc6lZmB",
+          "mode": "list",
+          "cachedResultName": "processingOrders",
+          "cachedResultUrl": "/projects/vdDOH7jqo60DrQIz/datatables/8fgCP69MFzc6lZmB"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "=orderID",
+              "keyValue": "={{ $json.orderID }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {
+            "orderID": 0
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "orderID",
+              "displayName": "orderID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "employeeName",
+              "displayName": "employeeName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -112,
+        -432
+      ],
+      "id": "102549d6-63b6-4148-b8fb-c9dcccb09118",
+      "name": "UpsertOrders"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7840e6f9-d3ad-4b90-bf28-4ca426e5cd93",
+              "leftValue": "={{ $json.orderStatus }}",
+              "rightValue": "processing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -560,
+        -288
+      ],
+      "id": "84da8299-5ee6-4283-82b5-9dd785007b5d",
+      "name": "CheckOrderStatus"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4c39e3c4-1563-44b0-895f-6adf2f8a636a",
+              "name": "orderID",
+              "value": "={{ $json.orderID }}",
+              "type": "string"
+            },
+            {
+              "id": "d76542de-298e-4fd5-a5e3-91cdf9953097",
+              "name": "employeeName",
+              "value": "={{ $json.employeeName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -352,
+        -448
+      ],
+      "id": "238b9fcc-58b9-4dfe-b8a3-19a85d4e4c02",
+      "name": "SetProcessingData"
+    },
+    {
+      "parameters": {
+        "jsCode": "let items = $input.all();\nlet totalBooked = items.length;\nlet bookedSum = 0;\n\nfor (let i=0; i < items.length; i++) {\n  bookedSum = bookedSum + items[i].json.orderPrice;\n}\n\nreturn [{ json: {totalBooked, bookedSum} }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        -192
+      ],
+      "id": "67a76dce-b427-4365-a3cd-139d7da78d16",
+      "name": "CalculateBookedOrders"
+    },
+    {
+      "parameters": {
+        "authentication": "webhook",
+        "content": "=This week we've {{$json.totalBooked}} booked orders with a total value of {{$json.bookedSum.round(2)}}. My Assessment ID: {{ $('GetDataFromWareHouse').params.headerParameters.parameters[0].value }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        -192
+      ],
+      "id": "8b4e3d0a-94e5-407a-8610-ae9398701ed9",
+      "name": "Discord",
+      "webhookId": "e347c61c-2ee5-407b-8f46-8a4758aad1ab",
+      "credentials": {
+        "discordWebhookApi": {
+          "id": "1ab4GhEbgYZJ1bdQ",
+          "name": "n8n Quickstart S1 Discord Webhook account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1024,
+        -464
+      ],
+      "id": "68eff190-2e9b-4afb-993b-d7ecfcbd2d60",
+      "name": "TriggerMonday9am"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "tigger manually": {
+      "main": [
+        [
+          {
+            "node": "GetDataFromWareHouse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GetDataFromWareHouse": {
+      "main": [
+        [
+          {
+            "node": "CheckOrderStatus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CheckOrderStatus": {
+      "main": [
+        [
+          {
+            "node": "SetProcessingData",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CalculateBookedOrders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SetProcessingData": {
+      "main": [
+        [
+          {
+            "node": "UpsertOrders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CalculateBookedOrders": {
+      "main": [
+        [
+          {
+            "node": "Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TriggerMonday9am": {
+      "main": [
+        [
+          {
+            "node": "GetDataFromWareHouse",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "f9563b2e-06b2-4820-bfdb-11a7c576a87a",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c9eb74c97c2954dced8b80d4c052156953db8e8675686a297e394815ebc57b20"
+  },
+  "nodeGroups": [],
+  "id": "gox10dV5ZYXkpHhg",
+  "tags": []
+}
